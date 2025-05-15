@@ -1,4 +1,4 @@
-[Открыть схему взаимодействия](./interaction-diagram.html)
+[Открыть схему взаимодействия]([.](https://https://github.com/z21-cloud/GraduationProject/Assets/interaction_diagram.pdf)
 [Открыть схему взаимодействия](https://https://github.com/z21-cloud/GraduationProject/Assets/interaction-diagram.html)
 
 ## Схема взаимодействия
