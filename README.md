@@ -16,8 +16,8 @@ graph TD
     IItemStateStrategy --> PassiveStateStrategy
     IItemStateStrategy --> PeriodicStateStrategy
 
-### ItemSpawner / ItemFactory
-```mermaid
+###1. ItemSpawner / ItemFactory
+mermaid
 graph TD
     subgraph "ItemSpawner"
         IS[ItemSpawner]
