@@ -2,7 +2,7 @@
 
 [Открыть схему взаимодействия](https://https://github.com/z21-cloud/GraduationProject/Assets/interaction-diagram.html)
 
-![Схема взаимодействия]((https://https://github.com/z21-cloud/GraduationProject/Assets/)interaction-diagram.svg)
+![Схема взаимодействия](https://https://github.com/z21-cloud/GraduationProject/Assets/interaction-diagram.svg)
 
 ## Схема взаимодействия
 
