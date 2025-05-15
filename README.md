@@ -15,8 +15,10 @@ graph TD
     IItemStateStrategy --> ActiveStateStrategy
     IItemStateStrategy --> PassiveStateStrategy
     IItemStateStrategy --> PeriodicStateStrategy
+```
 
-ItemSpawner and ItemFactory
+###ItemSpawner and ItemFactory
+```mermaid
 graph TD
     subgraph "ItemSpawner"
         IS[ItemSpawner]
@@ -44,3 +46,4 @@ graph TD
     style IC fill:#d6eaf8,stroke:#2c3e50,stroke-width:2px
     style ISC fill:#ecf0f1,stroke:#2c3e50,stroke-width:2px
     style RandomSettings fill:#f8f9f9,stroke:#7f8c8d,stroke-width:1px,stroke-dasharray:4 2
+```
