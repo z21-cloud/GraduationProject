@@ -4,6 +4,7 @@ using UnityEngine;
 public class ST500Piranya : MonoBehaviour
 {
     [SerializeField] private bool isDeviceActive = false;
+    [SerializeField] private ST500ButtonAnimator buttonAnimator;
     public bool IsDeviceActive => isDeviceActive;
 
     private ItemContext itemContext;
@@ -18,7 +19,6 @@ public class ST500Piranya : MonoBehaviour
         if (!Application.isPlaying)
         {
             // Для отладки в редакторе
-            GetComponent<Renderer>().sharedMaterial.color = isDeviceActive ? Color.green : Color.red;
             Debug.Log($"ST-500: Состояние устройства изменено на {(isDeviceActive ? "включено" : "выключено")}");
         }
     }
@@ -26,8 +26,8 @@ public class ST500Piranya : MonoBehaviour
     public void ToggleDevice()
     {
         isDeviceActive = !isDeviceActive;
-        GetComponent<Renderer>().sharedMaterial.color = isDeviceActive ? Color.green : Color.red; //добавил изменение материала во время игры для дебага
         Debug.Log($"ST-500: Устройство {(isDeviceActive ? "включено" : "выключено")}");
+        buttonAnimator.UpdateButtonState(isDeviceActive);
     }
 
     public bool CanInteract()

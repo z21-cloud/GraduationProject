@@ -23,6 +23,8 @@ public class ItemContext : MonoBehaviour
     public ItemStateType StateType => _stateType;
     public bool IsDestroyed => _isDestroyed;
 
+    public IItemStateStrategy CurrentStrategy => currentStrategy;
+
     // Стратегия (внутреннее состояние)
     private IItemStateStrategy currentStrategy;
 
