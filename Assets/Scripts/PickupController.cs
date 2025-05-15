@@ -14,6 +14,8 @@ public class PickupController : MonoBehaviour
     [SerializeField] private Color rayColorHit = Color.green;
     [SerializeField] private Color rayColorMiss = Color.red;
 
+    [SerializeField] private ST500Piranya piranya;
+
     private ItemContext currentInteractable;
 
     private void Update()
@@ -25,12 +27,21 @@ public class PickupController : MonoBehaviour
     private void HandleInput()
     {
         if (currentInteractable == null) return;
-        if(Input.GetMouseButtonDown(0))
+
+        // ЛКМ - считываем данные (только если устройство включено)
+        if (Input.GetMouseButtonDown(0))
         {
+            if (piranya != null && !piranya.CanInteract())
+            {
+                Debug.Log("ST-500 выключено. Считывание данных невозможно.");
+                return;
+            }
+
             currentInteractable.TransmitData();
         }
 
-        if(Input.GetKeyDown(KeyCode.E))
+        // E - уничтожаем объект (всегда доступно)
+        if (Input.GetKeyDown(KeyCode.E))
         {
             currentInteractable.DestroyItem();
             currentInteractable = null;
