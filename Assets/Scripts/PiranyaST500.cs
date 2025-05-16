@@ -4,14 +4,21 @@ using UnityEngine;
 public class ST500Piranya : MonoBehaviour
 {
     [SerializeField] private bool isDeviceActive = false;
-    [SerializeField] private ST500ButtonAnimator buttonAnimator;
     public bool IsDeviceActive => isDeviceActive;
+
+
+    [SerializeField] private ST500ButtonAnimator buttonAnimator;
+
+    public delegate void DeviceStateChanged(bool isActive);
+    public static event DeviceStateChanged OnDeviceStateChanged;
 
     private ItemContext itemContext;
 
     private void Awake()
     {
         itemContext = GetComponent<ItemContext>();
+        Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
     }
 
     private void OnValidate()
@@ -23,11 +30,35 @@ public class ST500Piranya : MonoBehaviour
         }
     }
 
+    private void Update()
+    {
+        if(Input.GetKeyDown(KeyCode.Alpha1))
+        {
+            ToggleDevice();
+        }
+    }
+
     public void ToggleDevice()
     {
         isDeviceActive = !isDeviceActive;
         Debug.Log($"ST-500: Устройство {(isDeviceActive ? "включено" : "выключено")}");
         buttonAnimator.UpdateButtonState(isDeviceActive);
+        OnDeviceStateChanged?.Invoke(isDeviceActive);
+        UpdateCursorState();
+    }
+
+    private void UpdateCursorState()
+    {
+        if (isDeviceActive)
+        {
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+        }
+        else
+        {
+            Cursor.visible = false;
+            Cursor.lockState = CursorLockMode.Locked;
+        }
     }
 
     public bool CanInteract()
