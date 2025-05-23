@@ -4,7 +4,8 @@ using UnityEngine;
 
 public enum ItemType
 {
-    Safe,
-    Dangerous,
-    Neutral
+    GSM,
+    LTE,
+    Wifi,
+    Bluetooth
 }

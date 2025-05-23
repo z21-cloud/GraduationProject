@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using System.Collections;
 
 [Serializable]
 public class ItemContext : MonoBehaviour
@@ -22,28 +23,29 @@ public class ItemContext : MonoBehaviour
     public Color Color => _color;
     public ItemStateType StateType => _stateType;
     public bool IsDestroyed => _isDestroyed;
-
-    public IItemStateStrategy CurrentStrategy => currentStrategy;
+    public IItemStateStrategy CurrentStrategy { get; private set; }
 
     // Стратегия (внутреннее состояние)
-    private IItemStateStrategy currentStrategy;
+    private Coroutine frequencyCoroutine;
+    private IFrequencyStrategy frequencyStrategy;
 
     // Статический счетчик ID
     private static int idCounter = 1;
 
     // Инициализация предмета
-    public void Initialize(ItemType type, bool interactable, IItemStateStrategy strategy)
+    public void Initialize(ItemType type, bool interactable, IItemStateStrategy stateStrategy, IFrequencyStrategy freqStrategy)
     {
-        this._type = type;
-        this._interactable = interactable;
-        this._frequency = UnityEngine.Random.Range(1f, 1000f);
-        this._id = idCounter++;
-        this._stateType = GetStateTypeFromStrategy(strategy);
-        this._isDestroyed = false;
-        this.currentStrategy = strategy;
+        _type = type;
+        _interactable = interactable;
+        _id = idCounter++;
+        _stateType = GetStateTypeFromStrategy(stateStrategy);
+        _isDestroyed = false;
+        CurrentStrategy = stateStrategy;
+        frequencyStrategy = freqStrategy;
+        _frequency = frequencyStrategy.GetCurrentFrequency();
 
         // Устанавливаем цвет
-        this._color = GetColorFromType(type);
+        _color = GetColorFromType(type);
 
         // Применяем цвет к материалу
         if (TryGetComponent(out Renderer renderer))
@@ -52,14 +54,33 @@ public class ItemContext : MonoBehaviour
         }
 
         // Инициируем стратегию
-        strategy.OnStateEnter(this);
+        stateStrategy.OnStateEnter(this);
+
+        if (_type == ItemType.Bluetooth || _type == ItemType.Wifi)
+        {
+            frequencyCoroutine = StartCoroutine(UpdateFrequencyRoutine());
+        }
+    }
+
+    private IEnumerator UpdateFrequencyRoutine()
+    {
+        while(true)
+        {
+            yield return new WaitForSeconds(15f);
+
+            if (_isDestroyed)
+                yield break;
+
+            frequencyStrategy.UpdateFrequency();
+            _frequency = frequencyStrategy.GetCurrentFrequency();
+        }
     }
 
     // Метод для изменения состояния
     public void ChangeState(IItemStateStrategy newStrategy)
     {
-        currentStrategy.OnStateExit();
-        currentStrategy = newStrategy;
+        CurrentStrategy.OnStateExit();
+        CurrentStrategy = newStrategy;
         this._stateType = GetStateTypeFromStrategy(newStrategy);
         newStrategy.OnStateEnter(this);
     }
@@ -79,7 +100,7 @@ public class ItemContext : MonoBehaviour
             State = _stateType.ToString()
         };
 
-        currentStrategy.TransmitData(data);
+        CurrentStrategy.TransmitData(data);
     }
 
     // Уничтожение предмета
@@ -96,9 +117,8 @@ public class ItemContext : MonoBehaviour
         return strategy switch
         {
             ActiveStateStrategy _ => ItemStateType.Active,
-            PassiveStateStrategy _ => ItemStateType.Passive,
             PeriodicStateStrategy _ => ItemStateType.Periodic,
-            _ => ItemStateType.Passive
+            _ => ItemStateType.Active
         };
     }
 
@@ -106,9 +126,10 @@ public class ItemContext : MonoBehaviour
     {
         return type switch
         {
-            ItemType.Safe => Color.green,
-            ItemType.Dangerous => Color.red,
-            ItemType.Neutral => new Color(1, 0.64f, 0), // Оранжевый
+            ItemType.GSM => Color.green,
+            ItemType.LTE=> Color.red,
+            ItemType.Bluetooth => Color.blue,
+            ItemType.Wifi=> new Color(1, 0.64f, 0), // Оранжевый
             _ => Color.white
         };
     }

@@ -1,29 +1,63 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
+using System.Collections.Generic;
 
 public class ST500UIController : MonoBehaviour
 {
     [Header("Основные элементы")]
     [SerializeField] private Button scanButton;
-    [SerializeField] private Button frequencySettingsButton;
     [SerializeField] private Button cableScanButton;
+    [SerializeField] private ST500Scanner scanner;
 
     [Header("Панели")]
     [SerializeField] private GameObject mainMenuPanel;
-    [SerializeField] private GameObject frequencySettingsPanel;
     [SerializeField] private GameObject scanPanel;
     [SerializeField] private GameObject cableScanPanel;
 
-    [Header("Анимация мигания")]
-    [SerializeField] private Color blinkRed = Color.red;
-    [SerializeField] private Color blinkGreen = Color.green;
-    [SerializeField] private float blinkDuration = 2f;
-    [SerializeField] private float blinkInterval = 0.5f;
+    [Header("Сканирование")]
+    [SerializeField] private Transform itemsContainer; // Контейнер для элементов
+    [SerializeField] private GameObject itemInfoTemplate; // Префаб ScannedItemUI
+    [SerializeField] private int maxDisplayedItems = 4; // Максимум 4 предмета
+    [SerializeField] private float itemSpacing = 40f; // Расстояние между элементами
 
-    private Coroutine blinkCoroutine;
     private GameObject currentActivePanel;
-    private bool isFrequencySet = false;
+    private Coroutine scanCoroutine;
+    private bool isScanningActive = false;
+    private Dictionary<int, ScannedItemUI> scannedItemUIs = new Dictionary<int, ScannedItemUI>();
+
+    private IEnumerator ScanRoutine()
+    {
+        while (isScanningActive)
+        {
+            List<ItemData> items = scanner.GetDetectedItems();
+
+            // Сортируем по расстоянию
+            items.Sort((a, b) => a.Distance.CompareTo(b.Distance));
+
+            // Очищаем старые элементы
+            foreach (var uiElement in scannedItemUIs.Values)
+                Destroy(uiElement.gameObject);
+            scannedItemUIs.Clear();
+
+            // Создаем новые элементы UI
+            for (int i = 0; i < Mathf.Min(items.Count, maxDisplayedItems); i++)
+            {
+                ItemData item = items[i];
+                GameObject newItemUI = Instantiate(itemInfoTemplate, itemsContainer);
+                ScannedItemUI scannedUI = newItemUI.GetComponent<ScannedItemUI>();
+
+                // Устанавливаем позицию через RectTransform
+                RectTransform rectTransform = newItemUI.GetComponent<RectTransform>();
+                rectTransform.anchoredPosition = new Vector2(0, -i * itemSpacing);
+
+                scannedUI.Initialize(item);
+                scannedItemUIs[item.ID] = scannedUI;
+            }
+
+            yield return new WaitForSeconds(0.5f); // Обновление каждые 0.5 секунд
+        }
+    }
 
     private void OnEnable()
     {
@@ -57,32 +91,20 @@ public class ST500UIController : MonoBehaviour
 
     public void OnScanButtonClick()
     {
-        if (!isFrequencySet)
-        {
-            // Мигаем кнопками
-            BlinkButtons(scanButton, frequencySettingsButton);
-            return;
-        }
-
+        //включаем сканнер
         // Открываем панель сканирования
-        OpenPanel(scanPanel);
+        scanner.ToggleScanning();
+        isScanningActive = scanner.IsScanningActive;
+        if (scanner.IsScanningActive)
+        {
+            OpenPanel(scanPanel); 
+            scanCoroutine = StartCoroutine(ScanRoutine());
+        }
     }
 
-    public void OpenFrequencySettings()
+    public void OnBackButtonClick()
     {
-        OpenPanel(frequencySettingsPanel);
-    }
-
-    public void BackButton()
-    {
-        CloseCurrentPanel();
-        OpenPanel(mainMenuPanel);
-    }
-
-    public void ConfirmFrequencySettings()
-    {
-        // Логика сохранения частоты
-        isFrequencySet = true;
+        scanner.ToggleScanning();
         CloseCurrentPanel();
         OpenPanel(mainMenuPanel);
     }
@@ -90,7 +112,6 @@ public class ST500UIController : MonoBehaviour
     private void HideAllPanels()
     {
         mainMenuPanel.SetActive(false);
-        frequencySettingsPanel.SetActive(false);
         scanPanel.SetActive(false);
         cableScanPanel.SetActive(false);
     }
@@ -109,43 +130,5 @@ public class ST500UIController : MonoBehaviour
             currentActivePanel.SetActive(false);
             currentActivePanel = null;
         }
-    }
-
-    private void BlinkButtons(params Button[] buttons)
-    {
-        // Останавливаем предыдущую корутину
-        if (blinkCoroutine != null)
-            StopCoroutine(blinkCoroutine);
-
-        // Запускаем мигание
-        blinkCoroutine = StartCoroutine(BlinkRoutine(buttons));
-    }
-
-    private IEnumerator BlinkRoutine(Button[] buttons)
-    {
-        float elapsedTime = 0f;
-        while (elapsedTime < blinkDuration)
-        {
-            foreach (Button button in buttons)
-            {
-                if (button == scanButton)
-                    button.image.color = blinkRed;
-                else if (button == frequencySettingsButton)
-                    button.image.color = blinkGreen;
-            }
-
-            yield return new WaitForSeconds(blinkInterval / 2f);
-
-            foreach (Button button in buttons)
-                button.image.color = Color.white;
-
-            yield return new WaitForSeconds(blinkInterval / 2f);
-
-            elapsedTime += blinkInterval;
-        }
-
-        // Возвращаем исходный цвет
-        foreach (Button button in buttons)
-            button.image.color = Color.white;
     }
 }

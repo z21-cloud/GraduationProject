@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: ItemSpawnConfig
   m_EditorClassIdentifier: 
   ItemsToSpawn: 7
-  SafeChance: 0.4
-  DangerousChance: 0.3
-  NeutralChance: 0.3
+  GSMChance: 0.25
+  LTEChance: 0.25
+  WifiChance: 0.25
+  BluetoothChance: 0.25
   ActiveChance: 0.5
-  PassiveChance: 0.2
-  PeriodicChance: 0.3
-  InteractableChance: 0.8
+  PeriodicChance: 0.5
+  InteractableChance: 1

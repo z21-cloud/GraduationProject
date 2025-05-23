@@ -57,13 +57,15 @@ public class ItemSpawner : MonoBehaviour
             ItemType itemType = GetRandomItemType();
             bool isInteractable = Random.value <= spawnConfig.InteractableChance;
             IItemStateStrategy stateStrategy = GetRandomStateStrategy();
+            IFrequencyStrategy frequencyStrategy = GetRandomFrequencyStrategy(itemType);
 
             // Создаем предмет
             GameObject newItem = itemFactory.CreateItem(
                 itemType,
                 isInteractable,
                 stateStrategy,
-                spawnPoint.position
+                spawnPoint.position,
+                frequencyStrategy
             );
 
             // Опционально: добавляем визуальный эффект спавна
@@ -76,13 +78,14 @@ public class ItemSpawner : MonoBehaviour
     private ItemType GetRandomItemType()
     {
         float randomValue = Random.value;
-
-        if (randomValue < spawnConfig.SafeChance)
-            return ItemType.Safe;
-        else if (randomValue < spawnConfig.SafeChance + spawnConfig.DangerousChance)
-            return ItemType.Dangerous;
+        if (randomValue < spawnConfig.GSMChance)
+            return ItemType.GSM;
+        else if (randomValue < spawnConfig.GSMChance + spawnConfig.LTEChance)
+            return ItemType.LTE;
+        else if (randomValue < spawnConfig.GSMChance + spawnConfig.LTEChance + spawnConfig.WifiChance)
+            return ItemType.Wifi;
         else
-            return ItemType.Neutral;
+            return ItemType.Bluetooth;
     }
 
     private IItemStateStrategy GetRandomStateStrategy()
@@ -91,9 +94,19 @@ public class ItemSpawner : MonoBehaviour
 
         if (randomValue < spawnConfig.ActiveChance)
             return new ActiveStateStrategy();
-        else if (randomValue < spawnConfig.ActiveChance + spawnConfig.PassiveChance)
-            return new PassiveStateStrategy();
         else
             return new PeriodicStateStrategy();
+    }
+
+    private IFrequencyStrategy GetRandomFrequencyStrategy(ItemType type)
+    {
+        return type switch
+        {
+            ItemType.GSM => new StaticFrequencyStrategy(Random.Range(900f, 915f)),
+            ItemType.LTE => new StaticFrequencyStrategy(Random.Range(700f, 2600f)),
+            ItemType.Wifi => new WiFiChannelSwitchingStrategy(),
+            ItemType.Bluetooth => new BluetoothFrequencyHoppingStrategy(2402f),
+            _ => new StaticFrequencyStrategy(Random.Range(1f, 1000f))
+        };
     }
 }

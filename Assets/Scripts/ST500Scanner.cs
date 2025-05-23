@@ -7,14 +7,17 @@ public class ST500Scanner : MonoBehaviour
 {
     [SerializeField] private float scanRadius = 5f;
     [SerializeField] private float scanInterval = 1f;
-    [SerializeField] private LayerMask targetLayer;
     [SerializeField] private bool isScanningActive = false;
+    [SerializeField] private float rotationSpeed = 30f; // Скорость вращения
     public bool IsScanningActive => isScanningActive;
 
+    private Coroutine rotationCoroutine;
     private ST500Piranya piranya;
     private SphereCollider scanArea;
     private Coroutine scanCoroutine;
     private HashSet<ItemContext> nearbyItems = new HashSet<ItemContext>();
+
+    public static event System.Action<bool> OnScanningStateChanged;
 
     private void Awake()
     {
@@ -48,9 +51,15 @@ public class ST500Scanner : MonoBehaviour
 
     public void ToggleScanning()
     {
-        isScanningActive = !isScanningActive;
-        Debug.Log($"Сканирование ST-500: {(isScanningActive ? "включено" : "выключено")}");
+        if (!piranya.IsDeviceActive)
+        {
+            Debug.Log("Устройство выключено, сканирование неактивно");
+            return;
+        }
 
+        isScanningActive = !isScanningActive;
+        OnScanningStateChanged?.Invoke(isScanningActive);
+        Debug.Log($"Сканирование ST-500: {(isScanningActive ? "включено" : "выключено")}");
         if (isScanningActive)
         {
             scanCoroutine = StartCoroutine(ScanRoutine());
@@ -118,11 +127,44 @@ public class ST500Scanner : MonoBehaviour
             Frequency = item.Frequency,
             Interactable = item.Interactable,
             Color = item.Color,
-            State = item.StateType.ToString()
+            State = item.StateType.ToString(),
+            Distance = distance
         };
 
         item.CurrentStrategy.TransmitData(data);
         Debug.Log($"[Сканирование] Расстояние до предмета {item.ID}: {distance:F2} м");
+    }
+
+    public List<ItemData> GetDetectedItems()
+    {
+        List<ItemData> detectedItems = new List<ItemData>();
+
+        foreach (ItemContext item in nearbyItems)
+        {
+            if (item != null && !item.IsDestroyed)
+            {
+                float distance = Vector3.Distance(transform.position, item.transform.position);
+
+                if (distance <= scanRadius &&
+                    (item.StateType == ItemStateType.Active || item.StateType == ItemStateType.Periodic))
+                {
+                    detectedItems.Add(new ItemData
+                    {
+                        ID = item.ID,
+                        Type = item.Type,
+                        Frequency = item.Frequency,
+                        Interactable = item.Interactable,
+                        Color = item.Color,
+                        State = item.StateType.ToString(),
+                        Distance = distance
+                    });
+                }
+            }
+        }
+
+        // Сортируем по расстоянию
+        detectedItems.Sort((a, b) => a.Distance.CompareTo(b.Distance));
+        return detectedItems;
     }
 
     private void OnDrawGizmos()
