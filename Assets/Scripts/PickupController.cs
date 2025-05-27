@@ -6,7 +6,7 @@ using UnityEngine;
 public class PickupController : MonoBehaviour
 {
     [SerializeField] private Camera playerCamera;
-    [SerializeField] private float interactionRange = .5f;
+    [SerializeField] private float interactionRange = 2f;
 
     [Header("Отладка луча")]
     [SerializeField] private bool drawDebugRay = true;
@@ -16,7 +16,11 @@ public class PickupController : MonoBehaviour
 
     [SerializeField] private ST500Piranya piranya;
 
+    public static event Action<ItemData> OnItemInRange;
+    public static event Action OnItemOutOfRange;
+
     private ItemContext currentInteractable;
+    private ItemData currentInteractableData;
 
     private void Update()
     {
@@ -28,51 +32,55 @@ public class PickupController : MonoBehaviour
     {
         if (currentInteractable == null) return;
 
-        // ЛКМ - считываем данные (только если устройство включено)
-        if (Input.GetMouseButtonDown(0))
+        // Уничтожение по нажатию E
+        if (Input.GetKeyDown(KeyCode.E))
         {
-            if (piranya != null && !piranya.CanInteract())
+            if (piranya != null && !piranya.IsDeviceActive)
             {
                 Debug.Log("ST-500 выключено. Считывание данных невозможно.");
                 return;
             }
 
-            currentInteractable.TransmitData();
-        }
-
-        // E - уничтожаем объект (всегда доступно)
-        if (Input.GetKeyDown(KeyCode.E))
-        {
             currentInteractable.DestroyItem();
             currentInteractable = null;
+            OnItemOutOfRange?.Invoke();
         }
     }
 
     private void HandleRaycast()
     {
-        Ray ray = playerCamera.ScreenPointToRay(Input.mousePosition);
+        Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
         RaycastHit hit;
 
-        if(Physics.Raycast(ray, out hit))
+        if (Physics.Raycast(ray, out hit))
         {
             ItemContext item = hit.collider.GetComponent<ItemContext>();
-            if(item != null 
-                && Vector3.Distance(transform.position, hit.transform.position) <= interactionRange)
-            {
-                // Отрисовка луча (если включено)
-                if (drawDebugRay)
-                    Debug.DrawLine(ray.origin, hit.point, rayColorHit);
 
-                currentInteractable = item;
-                return;
+            if (item != null && !item.IsDestroyed)
+            {
+                float distance = Vector3.Distance(transform.position, item.transform.position);
+
+                if (distance <= interactionRange)
+                {
+                    currentInteractable = item;
+                    currentInteractableData = new ItemData
+                    {
+                        ID = item.ID,
+                        Type = item.Type,
+                        Frequency = item.Frequency,
+                        Interactable = item.Interactable,
+                        Color = item.Color,
+                        State = item.StateType.ToString(),
+                        Distance = distance
+                    };
+
+                    OnItemInRange?.Invoke(currentInteractableData);
+                    return;
+                }
             }
         }
-        currentInteractable = null;
 
-        if (drawDebugRay)
-        {
-            Vector3 rayEnd = ray.origin + ray.direction * debugRayLength;
-            Debug.DrawLine(ray.origin, rayEnd, rayColorMiss);
-        }
+        currentInteractable = null;
+        OnItemOutOfRange?.Invoke();
     }
 }

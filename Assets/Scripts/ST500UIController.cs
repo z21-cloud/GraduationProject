@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 
 public class ST500UIController : MonoBehaviour
 {
@@ -21,10 +22,36 @@ public class ST500UIController : MonoBehaviour
     [SerializeField] private int maxDisplayedItems = 4; // Максимум 4 предмета
     [SerializeField] private float itemSpacing = 40f; // Расстояние между элементами
 
+    [Header("Подсказка для уничтожения объекта")]
+    [SerializeField] private TextMeshProUGUI destroyPromptText; // Текст подсказки
+    [SerializeField] private PickupController pickupController; // Ссылка на PickupController
+
     private GameObject currentActivePanel;
     private Coroutine scanCoroutine;
     private bool isScanningActive = false;
     private Dictionary<int, ScannedItemUI> scannedItemUIs = new Dictionary<int, ScannedItemUI>();
+
+    private void OnEnable()
+    {
+        ST500Piranya.OnDeviceStateChanged += HandleDeviceStateChange;
+
+        if (pickupController != null)
+        {
+            PickupController.OnItemInRange += ShowDestroyPrompt;
+            PickupController.OnItemOutOfRange += HideDestroyPrompt;
+        }
+    }
+
+    private void OnDisable()
+    {
+        ST500Piranya.OnDeviceStateChanged -= HandleDeviceStateChange;
+
+        if (pickupController != null)
+        {
+            PickupController.OnItemInRange -= ShowDestroyPrompt;
+            PickupController.OnItemOutOfRange -= HideDestroyPrompt;
+        }
+    }
 
     private IEnumerator ScanRoutine()
     {
@@ -59,16 +86,6 @@ public class ST500UIController : MonoBehaviour
         }
     }
 
-    private void OnEnable()
-    {
-        ST500Piranya.OnDeviceStateChanged += HandleDeviceStateChange;
-    }
-
-    private void OnDisable()
-    {
-        ST500Piranya.OnDeviceStateChanged -= HandleDeviceStateChange;
-    }
-
     private void Start()
     {
         // Скрываем все панели при старте
@@ -86,6 +103,7 @@ public class ST500UIController : MonoBehaviour
         {
             // Отключаем UI и курсор
             HideAllPanels();
+            HideDestroyPrompt();
         }
     }
 
@@ -109,18 +127,36 @@ public class ST500UIController : MonoBehaviour
         OpenPanel(mainMenuPanel);
     }
 
-    private void HideAllPanels()
+    #region DestroyPrompt
+    private void ShowDestroyPrompt(ItemData itemData)
     {
-        mainMenuPanel.SetActive(false);
-        scanPanel.SetActive(false);
-        cableScanPanel.SetActive(false);
+        if (itemData.Interactable)
+        {
+            destroyPromptText.text = $"Нажмите E для уничтожения ID: {itemData.ID}";
+            destroyPromptText.gameObject.SetActive(true);
+        }
     }
 
+    private void HideDestroyPrompt()
+    {
+        if (destroyPromptText != null)
+            destroyPromptText.gameObject.SetActive(false);
+    }
+    #endregion
+
+    #region Open/CloseCurrent/HideAll Panel
     private void OpenPanel(GameObject panel)
     {
         HideAllPanels();
         currentActivePanel = panel;
         panel.SetActive(true);
+    }
+
+    private void HideAllPanels()
+    {
+        mainMenuPanel.SetActive(false);
+        scanPanel.SetActive(false);
+        cableScanPanel.SetActive(false);
     }
 
     private void CloseCurrentPanel()
@@ -131,4 +167,5 @@ public class ST500UIController : MonoBehaviour
             currentActivePanel = null;
         }
     }
+    #endregion
 }
