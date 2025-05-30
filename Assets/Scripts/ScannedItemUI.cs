@@ -10,22 +10,43 @@ public class ScannedItemUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI typeText;
     [SerializeField] private TextMeshProUGUI frequencyText;
     [SerializeField] private TextMeshProUGUI distanceText;
-    [SerializeField] private float transparency = 0.5f;
     [SerializeField] private Image colorIndicator;
+
+    private Color defaultColor;
+    private Color highLightColor = Color.red;
 
     public void Initialize(ItemData data)
     {
         idText.text = $"{data.ID}";
         typeText.text = $"{data.Type}";
-        frequencyText.text = $"{data.Frequency:F2} Ã√ˆ";
-        distanceText.text = $"{data.Distance:F2} Ï";
-        float maxDistance = 10f;
+        defaultColor = idText.color;
+
+        if (data.IsIRDevice)
+        {
+            frequencyText.text = "» -ÒË„Ì‡Î";
+            distanceText.text = $"{data.Distance:F2} Ï";
+            colorIndicator.color = new Color(data.Color.r, data.Color.g, data.Color.b, 0.8f);
+        }
+        else
+        {
+            frequencyText.text = $"{data.Frequency:F2} Ã√ˆ";
+            distanceText.text = $"{data.Distance:F2} Ï";
+            float alpha = Mathf.Clamp01(1 - data.Distance / 10f);
+            colorIndicator.color = new Color(data.Color.r, data.Color.g, data.Color.b, alpha);
+        }
+
+        /*float maxDistance = 10f;
         float alpha = Mathf.InverseLerp(maxDistance, 0f, data.Distance);
         alpha = Mathf.Clamp01(alpha);
 
         Color colorWithAlpha = data.Color;
         colorWithAlpha.a = alpha;
-        colorIndicator.color = colorWithAlpha;
+        colorIndicator.color = colorWithAlpha*/;
+    }
 
+    public void SetHighlight(bool isHighlighted)
+    {
+        idText.color = isHighlighted ? highLightColor : defaultColor;
+        typeText.color = isHighlighted ? highLightColor : defaultColor;
     }
 }

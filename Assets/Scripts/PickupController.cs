@@ -8,11 +8,11 @@ public class PickupController : MonoBehaviour
     [SerializeField] private Camera playerCamera;
     [SerializeField] private float interactionRange = 2f;
 
-    [Header("Отладка луча")]
+    /*[Header("Отладка луча")]
     [SerializeField] private bool drawDebugRay = true;
-    [SerializeField] private float debugRayLength = 100f;
+    [SerializeField] private float debugRayLength = 10f;
     [SerializeField] private Color rayColorHit = Color.green;
-    [SerializeField] private Color rayColorMiss = Color.red;
+    [SerializeField] private Color rayColorMiss = Color.red;*/
 
     [SerializeField] private ST500Piranya piranya;
 
@@ -35,15 +35,14 @@ public class PickupController : MonoBehaviour
         // Уничтожение по нажатию E
         if (Input.GetKeyDown(KeyCode.E))
         {
-            if (piranya != null && !piranya.IsDeviceActive)
+            if (currentInteractable.Type == ItemType.IRDevice)
             {
-                Debug.Log("ST-500 выключено. Считывание данных невозможно.");
+                Debug.Log("ИК-устройства не могут быть уничтожены");
                 return;
             }
 
             currentInteractable.DestroyItem();
             currentInteractable = null;
-            OnItemOutOfRange?.Invoke();
         }
     }
 
@@ -55,11 +54,9 @@ public class PickupController : MonoBehaviour
         if (Physics.Raycast(ray, out hit))
         {
             ItemContext item = hit.collider.GetComponent<ItemContext>();
-
             if (item != null && !item.IsDestroyed)
             {
-                float distance = Vector3.Distance(transform.position, item.transform.position);
-
+                float distance = Vector3.Distance(transform.position, hit.transform.position);
                 if (distance <= interactionRange)
                 {
                     currentInteractable = item;
@@ -73,14 +70,13 @@ public class PickupController : MonoBehaviour
                         State = item.StateType.ToString(),
                         Distance = distance
                     };
-
-                    OnItemInRange?.Invoke(currentInteractableData);
+                    PickupController.OnItemInRange?.Invoke(currentInteractableData);
                     return;
                 }
             }
         }
 
         currentInteractable = null;
-        OnItemOutOfRange?.Invoke();
+        PickupController.OnItemOutOfRange?.Invoke();
     }
 }

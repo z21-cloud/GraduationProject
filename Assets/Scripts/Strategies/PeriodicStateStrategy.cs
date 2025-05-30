@@ -10,8 +10,13 @@ public class PeriodicStateStrategy : IItemStateStrategy
 
     public void TransmitData(ItemData itemData)
     {
-        if (_isActive)
-            Debug.Log($"[Периодический] {itemData}");
+        //if (_isActive)
+            //Debug.Log($"[Периодический] {itemData}");
+    }
+
+    public void TransmitIRData(IRDeviceData data)
+    {
+        //throw new System.NotImplementedException();
     }
 
     public void OnStateEnter(ItemContext itemContext)

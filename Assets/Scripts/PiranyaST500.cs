@@ -1,6 +1,5 @@
 using UnityEngine;
 
-[RequireComponent(typeof(ItemContext))]
 public class ST500Piranya : MonoBehaviour
 {
     [SerializeField] private bool isDeviceActive = false;

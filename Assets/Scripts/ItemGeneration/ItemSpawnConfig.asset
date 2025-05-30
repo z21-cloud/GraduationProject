@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c1a09055ee7ffa845b7781ae6342c703, type: 3}
   m_Name: ItemSpawnConfig
   m_EditorClassIdentifier: 
-  ItemsToSpawn: 7
-  GSMChance: 0.25
-  LTEChance: 0.25
-  WifiChance: 0.25
-  BluetoothChance: 0.25
+  ItemsToSpawn: 10
+  GSMChance: 0.2
+  LTEChance: 0.2
+  WifiChance: 0.2
+  BluetoothChance: 0.2
   ActiveChance: 0.5
   PeriodicChance: 0.5
   InteractableChance: 1

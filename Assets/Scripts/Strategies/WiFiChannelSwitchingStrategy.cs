@@ -21,6 +21,6 @@ public class WiFiChannelSwitchingStrategy : IFrequencyStrategy
     {
         int randomIndex = Random.Range(0, channels.Length);
         currentFrequency = channels[randomIndex];
-        Debug.Log($"[WiFi] Канал сменился на {currentFrequency:F2} МГц");
+        //Debug.Log($"[WiFi] Канал сменился на {currentFrequency:F2} МГц");
     }
 }

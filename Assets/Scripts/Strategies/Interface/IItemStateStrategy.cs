@@ -7,4 +7,5 @@ public interface IItemStateStrategy
     void TransmitData(ItemData itemData);
     void OnStateEnter(ItemContext itemContext);
     void OnStateExit();
+    void TransmitIRData(IRDeviceData data);
 }

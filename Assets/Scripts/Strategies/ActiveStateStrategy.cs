@@ -16,6 +16,11 @@ public class ActiveStateStrategy : IItemStateStrategy
 
     public void TransmitData(ItemData itemData)
     {
-        Debug.Log($"[Активный] {itemData}");
+        //Debug.Log($"[Активный] {itemData}");
+    }
+
+    public void TransmitIRData(IRDeviceData data)
+    {
+        //throw new System.NotImplementedException();
     }
 }

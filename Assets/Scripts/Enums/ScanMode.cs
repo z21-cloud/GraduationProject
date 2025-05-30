@@ -2,11 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum ItemType
+public enum ScanMode
 {
-    GSM,
-    LTE,
-    Wifi,
-    Bluetooth,
-    IRDevice
+    Frequency,
+    IR
 }

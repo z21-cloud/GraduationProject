@@ -7,6 +7,7 @@ public class ItemSpawner : MonoBehaviour
     [SerializeField] private ItemFactory itemFactory;
     [SerializeField] private List<Transform> spawnNodes;
     [SerializeField] private ItemSpawnConfig spawnConfig;
+    [SerializeField] private List<GameObject> spawnedItems = new List<GameObject>();
 
     private readonly List<Transform> availableNodes = new List<Transform>();
 
@@ -56,18 +57,19 @@ public class ItemSpawner : MonoBehaviour
             // Генерируем параметры предмета
             ItemType itemType = GetRandomItemType();
             bool isInteractable = Random.value <= spawnConfig.InteractableChance;
-            IItemStateStrategy stateStrategy = GetRandomStateStrategy();
+            IItemStateStrategy stateStrategy = GetRandomStateStrategy(itemType);
             IFrequencyStrategy frequencyStrategy = GetRandomFrequencyStrategy(itemType);
 
             // Создаем предмет
-            GameObject newItem = itemFactory.CreateItem(
-                itemType,
+            GameObject newItem = itemFactory.CreateItem
+                (itemType, 
                 isInteractable,
                 stateStrategy,
-                spawnPoint.position,
-                frequencyStrategy
-            );
+                frequencyStrategy,
+                spawnPoint.position
+                );
 
+            spawnedItems.Add(newItem);
             // Опционально: добавляем визуальный эффект спавна
             yield return new WaitForSeconds(0.2f); // Задержка между спавнами
         }
@@ -84,18 +86,26 @@ public class ItemSpawner : MonoBehaviour
             return ItemType.LTE;
         else if (randomValue < spawnConfig.GSMChance + spawnConfig.LTEChance + spawnConfig.WifiChance)
             return ItemType.Wifi;
-        else
+        else if (randomValue < spawnConfig.GSMChance + spawnConfig.LTEChance + spawnConfig.WifiChance + spawnConfig.BluetoothChance)
             return ItemType.Bluetooth;
+        else
+            return ItemType.IRDevice;
     }
 
-    private IItemStateStrategy GetRandomStateStrategy()
+    private IItemStateStrategy GetRandomStateStrategy(ItemType type)
     {
         float randomValue = Random.value;
 
-        if (randomValue < spawnConfig.ActiveChance)
-            return new ActiveStateStrategy();
-        else
-            return new PeriodicStateStrategy();
+        if (type == ItemType.IRDevice)
+        {
+            return randomValue < spawnConfig.ActiveChance
+                ? new IRActiveStateStrategy()
+                : new IRPeriodicStateStrategy();
+        }
+
+        return randomValue < spawnConfig.ActiveChance
+            ? new ActiveStateStrategy()
+            : new PeriodicStateStrategy();
     }
 
     private IFrequencyStrategy GetRandomFrequencyStrategy(ItemType type)
@@ -106,6 +116,7 @@ public class ItemSpawner : MonoBehaviour
             ItemType.LTE => new StaticFrequencyStrategy(Random.Range(700f, 2600f)),
             ItemType.Wifi => new WiFiChannelSwitchingStrategy(),
             ItemType.Bluetooth => new BluetoothFrequencyHoppingStrategy(2402f),
+            ItemType.IRDevice => new StaticFrequencyStrategy(0f),
             _ => new StaticFrequencyStrategy(Random.Range(1f, 1000f))
         };
     }

@@ -21,6 +21,6 @@ public class BluetoothFrequencyHoppingStrategy : IFrequencyStrategy
     public void UpdateFrequency()
     {
         currentFrequency = Random.Range(minFreq, maxFreq);
-        Debug.Log($"[Bluetooth] „астота сменилась на {currentFrequency:F2} ћ√ц");
+        //Debug.Log($"[Bluetooth] „астота сменилась на {currentFrequency:F2} ћ√ц");
     }
 }

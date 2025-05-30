@@ -16,28 +16,48 @@ public class ItemContext : MonoBehaviour
     [SerializeField] private bool _isDestroyed;
 
     // Свойства (для внутреннего использования)
-    public ItemType Type => _type;
-    public bool Interactable => _interactable;
-    public float Frequency => _frequency;
+    public ItemType Type
+    {
+        get => _type;
+        protected set => _type = value;
+    }
+
+    public bool Interactable
+    {
+        get => _interactable;
+        protected set => _interactable = value;
+    }
+
+    public float Frequency
+    {
+        get => _frequency;
+        protected set => _frequency = value;
+    }
+
     public int ID => _id;
-    public Color Color => _color;
-    public ItemStateType StateType => _stateType;
+    public Color Color
+    {
+        get => _color;
+        protected set => _color = value;
+    }
+    public ItemStateType StateType
+    {
+        get => _stateType;
+        protected set => _stateType = value;
+    }
+
     public bool IsDestroyed => _isDestroyed;
     public IItemStateStrategy CurrentStrategy { get; private set; }
-
-    // Стратегия (внутреннее состояние)
-    private Coroutine frequencyCoroutine;
     private IFrequencyStrategy frequencyStrategy;
 
-    // Статический счетчик ID
-    private static int idCounter = 1;
+    public bool IsIRDevice => Type == ItemType.IRDevice;
 
     // Инициализация предмета
-    public void Initialize(ItemType type, bool interactable, IItemStateStrategy stateStrategy, IFrequencyStrategy freqStrategy)
+    public virtual void Initialize(ItemType type, bool interactable, IItemStateStrategy stateStrategy, IFrequencyStrategy freqStrategy)
     {
         _type = type;
         _interactable = interactable;
-        _id = idCounter++;
+        _id = IdGenerator.GetNextId();
         _stateType = GetStateTypeFromStrategy(stateStrategy);
         _isDestroyed = false;
         CurrentStrategy = stateStrategy;
@@ -58,11 +78,11 @@ public class ItemContext : MonoBehaviour
 
         if (_type == ItemType.Bluetooth || _type == ItemType.Wifi)
         {
-            frequencyCoroutine = StartCoroutine(UpdateFrequencyRoutine());
+            StartCoroutine(UpdateFrequencyRoutine());
         }
     }
 
-    private IEnumerator UpdateFrequencyRoutine()
+    protected virtual IEnumerator UpdateFrequencyRoutine()
     {
         while(true)
         {
@@ -77,7 +97,7 @@ public class ItemContext : MonoBehaviour
     }
 
     // Метод для изменения состояния
-    public void ChangeState(IItemStateStrategy newStrategy)
+    public virtual void ChangeState(IItemStateStrategy newStrategy)
     {
         CurrentStrategy.OnStateExit();
         CurrentStrategy = newStrategy;
@@ -86,7 +106,7 @@ public class ItemContext : MonoBehaviour
     }
 
     // Передача данных
-    public void TransmitData()
+    public virtual void TransmitData()
     {
         if (_isDestroyed) return;
 
@@ -104,25 +124,28 @@ public class ItemContext : MonoBehaviour
     }
 
     // Уничтожение предмета
-    public void DestroyItem()
+    public virtual void DestroyItem()
     {
         _isDestroyed = true;
+        IdGenerator.ReleaseId(_id);
         Debug.Log($"Предмет {_id} уничтожен");
         Destroy(gameObject);
     }
 
     // Вспомогательные методы
-    private ItemStateType GetStateTypeFromStrategy(IItemStateStrategy strategy)
+    protected virtual ItemStateType GetStateTypeFromStrategy(IItemStateStrategy strategy)
     {
         return strategy switch
         {
             ActiveStateStrategy _ => ItemStateType.Active,
             PeriodicStateStrategy _ => ItemStateType.Periodic,
+            IRActiveStateStrategy _ => ItemStateType.Active, 
+            IRPeriodicStateStrategy _ => ItemStateType.Periodic,
             _ => ItemStateType.Active
-        };
+        }; ;
     }
 
-    private Color GetColorFromType(ItemType type)
+    protected virtual Color GetColorFromType(ItemType type)
     {
         return type switch
         {
@@ -130,6 +153,7 @@ public class ItemContext : MonoBehaviour
             ItemType.LTE=> Color.red,
             ItemType.Bluetooth => Color.blue,
             ItemType.Wifi=> new Color(1, 0.64f, 0), // Оранжевый
+            ItemType.IRDevice => Color.magenta,
             _ => Color.white
         };
     }
