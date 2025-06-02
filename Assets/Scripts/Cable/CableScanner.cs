@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -6,17 +7,11 @@ public class CableScanner : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private Renderer scannerRenderer;
-    [SerializeField] private AudioSource audioSource;
-    [SerializeField] private ST500UIController uiController;
 
     [Header("Settings")]
     public Color activeColor = Color.green;
     public Color inactiveColor = Color.white;
-    public AudioClip scanningSound;
-    public AudioClip vulnerabilitySound;
     [Range(0.1f, 1f)] public float maxScanDistance = 0.3f;
-    [Range(0.5f, 2f)] public float minPitch = 0.8f;
-    [Range(0.5f, 2f)] public float maxPitch = 1.2f;
 
     [Header("Runtime Status")]
     [ReadOnly] public bool isScanningMode = false;
@@ -25,8 +20,18 @@ public class CableScanner : MonoBehaviour
     [ReadOnly] public Cable currentCable;
     [ReadOnly] public GameObject currentVulnerability;
 
+    private ST500Piranya piranya;
+
+    // События для UI контроллера
+    public event Action<string> OnStatusChanged;
+    public event Action<bool> OnVulnerabilityStateChanged;
+    public event Action<float> OnProgressUpdated;
+
     private void Start()
     {
+        SetScanningMode(false);
+
+        piranya = GetComponent<ST500Piranya>();
         SetScanningMode(false);
     }
 
@@ -34,6 +39,13 @@ public class CableScanner : MonoBehaviour
     {
         isScanningMode = active;
 
+        if (isScanningMode && piranya != null && !piranya.IsDeviceActive)
+        {
+            Debug.Log("Устройство выключено, сканирование невозможно");
+            return;
+        }
+
+        // Изменяем цвет сканера
         if (scannerRenderer != null)
         {
             scannerRenderer.material.color = active ? activeColor : inactiveColor;
@@ -51,52 +63,43 @@ public class CableScanner : MonoBehaviour
 
     private void StartScanning()
     {
-        if (audioSource != null && scanningSound != null)
-        {
-            audioSource.clip = scanningSound;
-            audioSource.loop = true;
-            audioSource.Play();
-        }
+        // Останавливаем любой предыдущий звук сканирования
+        AudioManager.Instance.StopLoopingSound();
 
-        if (uiController != null)
-        {
-            uiController.ShowCableScanStatus("Scanning mode activated");
-        }
+        // Запускаем звук сканирования
+        AudioManager.Instance.PlayCableScanningSound();
+
+        OnStatusChanged?.Invoke("Scanning mode activated");
     }
 
     private void StopScanning()
     {
-        if (audioSource != null)
+        if (AudioManager.Instance.IsLoopingSoundPlaying() &&
+        AudioManager.Instance.GetLoopingClip() == AudioManager.Instance.scanningSound)
         {
-            audioSource.Stop();
+            AudioManager.Instance.StopLoopingSound();
         }
+        // Останавливаем звук сканирования
+        AudioManager.Instance.StopLoopingSound();
 
+        // Отключаемся от кабеля
         DisconnectFromCable();
 
-        if (uiController != null)
-        {
-            uiController.ShowCableScanStatus("Scanning mode deactivated");
-        }
+        // Уведомляем UI контроллер
+        OnStatusChanged?.Invoke("Scanning mode deactivated");
     }
 
     private void Update()
     {
-        if (isScanningMode && isConnectedToCable && currentVulnerability != null)
+        if (isScanningMode && isConnectedToCable && currentCable != null)
         {
-            UpdateScanningAudio();
-        }
-    }
+            // Рассчитываем прогресс сканирования
+            Vector3 cableDirection = currentCable.worldEnd - currentCable.worldStart;
+            Vector3 scannerPosition = transform.position - currentCable.worldStart;
+            float progress = Vector3.Dot(scannerPosition, cableDirection.normalized) / cableDirection.magnitude;
 
-    private void UpdateScanningAudio()
-    {
-        float distance = Vector3.Distance(transform.position, currentVulnerability.transform.position);
-        float volume = 1 - Mathf.Clamp01(distance / 3f);
-        float pitch = Mathf.Lerp(minPitch, maxPitch, 1 - volume);
-
-        if (audioSource != null)
-        {
-            audioSource.volume = volume;
-            audioSource.pitch = pitch;
+            // Отправляем прогресс в UI контроллер
+            OnProgressUpdated?.Invoke(Mathf.Clamp01(progress));
         }
     }
 
@@ -128,11 +131,6 @@ public class CableScanner : MonoBehaviour
     {
         bool isOnCable = cable.IsPointOnCable(transform.position, maxScanDistance);
 
-        Debug.Log($"Try connect to cable: " +
-                  $"Scanner: {transform.position}, " +
-                  $"Cable: {cable.worldStart} - {cable.worldEnd}, " +
-                  $"Result: {isOnCable}");
-
         if (isOnCable)
         {
             ConnectToCable(cable);
@@ -144,12 +142,8 @@ public class CableScanner : MonoBehaviour
         currentCable = cable;
         isConnectedToCable = true;
 
-        if (uiController != null)
-        {
-            uiController.ShowCableScanStatus($"Connected to cable: {cable.name}");
-        }
-
-        Debug.Log($"Connected to cable: {cable.name}");
+        // Уведомляем UI контроллер
+        OnStatusChanged?.Invoke($"Подключен к кабелю: {cable.name}");
     }
 
     private void OnTriggerExit(Collider other)
@@ -167,50 +161,58 @@ public class CableScanner : MonoBehaviour
         currentCable = null;
         currentVulnerability = null;
 
-        if (audioSource != null)
-        {
-            audioSource.volume = 1f;
-            audioSource.pitch = 1f;
-        }
-
-        if (uiController != null)
-        {
-            uiController.ShowCableScanStatus("Disconnected from cable");
-        }
+        // Уведомляем UI контроллер
+        OnStatusChanged?.Invoke("Отключен от кабеля");
+        OnVulnerabilityStateChanged?.Invoke(false);
     }
 
     private void FindVulnerability(GameObject vulnerability)
     {
+        if (vulnerability == null) return;
+
         vulnerabilityFound = true;
         currentVulnerability = vulnerability;
 
-        if (audioSource != null && vulnerabilitySound != null)
+        // Активируем визуальные эффекты
+        VulnerabilityMarker marker = vulnerability.GetComponent<VulnerabilityMarker>();
+        if (marker != null)
         {
-            audioSource.PlayOneShot(vulnerabilitySound);
+            marker.Highlight();
         }
 
-        if (uiController != null)
+        if (AudioManager.Instance != null)
         {
-            uiController.ShowCableScanStatus("VULNERABILITY FOUND! Press E to remove");
+            AudioManager.Instance.PlayVulnerabilityFoundSound();
         }
 
-        Debug.Log("Vulnerability found!");
+        // Уведомляем UI контроллер
+        OnStatusChanged?.Invoke("Обнаружена уязвимость. Нажимет 'Е', чтобы ее уничтожить.");
+        OnVulnerabilityStateChanged?.Invoke(true);
     }
 
     public void RemoveVulnerability()
     {
         if (vulnerabilityFound && currentCable != null)
         {
+            // Активируем эффект уничтожения
+            VulnerabilityMarker marker = currentVulnerability.GetComponent<VulnerabilityMarker>();
+            if (marker != null)
+            {
+                marker.Remove();
+            }
+            else
+            {
+                Destroy(currentVulnerability);
+            }
             currentCable.RemoveVulnerability();
             vulnerabilityFound = false;
             currentVulnerability = null;
 
-            if (uiController != null)
-            {
-                uiController.ShowCableScanStatus("Vulnerability removed");
-            }
+            AudioManager.Instance.PlayVulnerabilityDestroyedSound();
 
-            Debug.Log("Vulnerability removed");
+            // Уведомляем UI контроллер
+            OnStatusChanged?.Invoke("Уязвимость устранена");
+            OnVulnerabilityStateChanged?.Invoke(false);
         }
     }
 }

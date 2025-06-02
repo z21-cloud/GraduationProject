@@ -50,6 +50,25 @@ public class ST500Scanner : MonoBehaviour
         }
     }
 
+    private void HandleDeviceStateChanged(bool isActive)
+    {
+        // Если устройство выключено и сканирование активно - выключаем сканирование
+        if (!isActive && isScanningActive)
+        {
+            isScanningActive = false;
+            OnScanningStateChanged?.Invoke(false);
+            if (scanCoroutine != null)
+            {
+                StopCoroutine(scanCoroutine);
+                scanCoroutine = null;
+            }
+            Debug.Log("Сканирование выключено из-за отключения устройства");
+        }
+
+        // Обновляем состояние сканирования при изменении состояния устройства
+        OnScanningStateChanged?.Invoke(isScanningActive);
+    }
+
     public void ToggleScanning()
     {
         if (!piranya.IsDeviceActive)
@@ -76,6 +95,19 @@ public class ST500Scanner : MonoBehaviour
     {
         currentScanMode = mode;
         scanArea.radius = mode == ScanMode.IR ? irScanRadius : scanRadius;
+
+        // Обновляем UI
+        if (ST500UIController.Instance != null)
+        {
+            if (mode == ScanMode.IR)
+            {
+                ST500UIController.Instance.SetScanModeToggles(true, false);
+            }
+            else
+            {
+                ST500UIController.Instance.SetScanModeToggles(false, true);
+            }
+        }
     }
 
     private void OnTriggerEnter(Collider other)
@@ -161,33 +193,26 @@ public class ST500Scanner : MonoBehaviour
 
         foreach (ItemContext item in nearbyItems)
         {
-            if (item != null && !item.IsDestroyed)
+            if (item == null || item.IsDestroyed) continue;
+
+            float distance = Vector3.Distance(scannerPos, item.transform.position);
+            bool isVisible = item.StateType == ItemStateType.Active ||
+                             item.StateType == ItemStateType.Periodic;
+
+
+            if (distance <= scanArea.radius && isVisible)
             {
-                float distance = Vector3.Distance(scannerPos, item.transform.position);
-
-                // Для IRDevice используем специальную проверку состояния
-                bool isVisible = item.IsIRDevice
-                    ? item.StateType == ItemStateType.Active || item.StateType == ItemStateType.Periodic
-                    : item.StateType == ItemStateType.Active || item.StateType == ItemStateType.Periodic;
-
-                if (distance <= scanArea.radius &&
-                    (item.IsIRDevice ||
-                    item.StateType == ItemStateType.Active ||
-                    item.StateType == ItemStateType.Periodic))
-                    {
-                    //Debug.Log($"Добавлен в обнаруженные: ID={item.ID}, Type={item.Type}, Dist={distance:F2}м");
-
-                    detectedItems.Add(new ItemData
-                    {
-                        ID = item.ID,
-                        Type = item.Type,
-                        Frequency = item.IsIRDevice ? 0f : item.Frequency,
-                        Interactable = item.Interactable,
-                        Color = item.Color,
-                        State = item.StateType.ToString(),
-                        Distance = distance
-                    });
-                }
+                detectedItems.Add(new ItemData
+                {
+                    ID = item.ID,
+                    Type = item.Type,
+                    Frequency = item.IsIRDevice ? 0f : item.Frequency,
+                    Interactable = item.Interactable,
+                    Color = item.Color,
+                    State = item.StateType.ToString(),
+                    Distance = distance,
+                    IsIRDevice = item.Type == ItemType.IRDevice
+                });
             }
         }
         return detectedItems;

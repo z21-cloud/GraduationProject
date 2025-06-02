@@ -8,35 +8,41 @@ public class ST500UIController : MonoBehaviour
 {
     [Header("Основные элементы")]
     [SerializeField] private Button scanButton;
+    [SerializeField] private Button irScanButton;
     [SerializeField] private Button cableScanButton;
     [SerializeField] private ST500Scanner scanner;
+    [SerializeField] private CableScanner cableScanner;
 
     [Header("Панели")]
     [SerializeField] private GameObject mainMenuPanel;
     [SerializeField] private GameObject scanPanel;
+    [SerializeField] private GameObject cableScanPanel;
 
-    [Header("Сканирование")]
+    [Header("Сканирование устройств")]
     [SerializeField] private Toggle showIRToggle;
     [SerializeField] private Toggle showFrequencyToggle;
-    [SerializeField] private Transform itemsContainer; // Контейнер для элементов
-    [SerializeField] private GameObject itemInfoTemplate; // Префаб ScannedItemUI
-    [SerializeField] private int maxDisplayedItems = 4; // Максимум 4 предмета
-    [SerializeField] private float itemSpacing = 40f; // Расстояние между элементами
+    [SerializeField] private Transform itemsContainer;
+    [SerializeField] private GameObject itemInfoTemplate;
+    [SerializeField] private int maxDisplayedItems = 4;
+    [SerializeField] private float itemSpacing = 40f;
 
     [Header("Подсказка для уничтожения объекта")]
-    //[SerializeField] private TextMeshProUGUI destroyPromptText; // Текст подсказки
-    [SerializeField] private PickupController pickupController; // Ссылка на PickupController
+    [SerializeField] private PickupController pickupController;
 
-    [Header("Cable Scanning")]
-    [SerializeField] private GameObject cableScanPanel;
+    [Header("Cable Scanning UI")]
     [SerializeField] private TextMeshProUGUI cableStatusText;
-    [SerializeField] private Slider scanProgressSlider;
+    [SerializeField] private Slider cableProgressSlider;
+    [SerializeField] private Image sliderFill;
+    public Color scanningColor = Color.blue;
+    public Color vulnerabilityColor = Color.red;
 
-    [SerializeField] private CableScanner cableScanner;
+    // Приватные переменные
     private GameObject currentActivePanel;
     private Coroutine scanCoroutine;
     private bool isScanningActive = false;
     private Dictionary<int, ScannedItemUI> scannedItemUIs = new Dictionary<int, ScannedItemUI>();
+
+    public static ST500UIController Instance { get; private set; }
 
     private void OnEnable()
     {
@@ -46,6 +52,14 @@ public class ST500UIController : MonoBehaviour
         {
             PickupController.OnItemInRange += HandleItemInRange;
             PickupController.OnItemOutOfRange += HandleItemOutOfRange;
+        }
+
+        // Подписываемся на события сканера кабелей
+        if (cableScanner != null)
+        {
+            cableScanner.OnStatusChanged += HandleCableStatusChange;
+            cableScanner.OnVulnerabilityStateChanged += HandleVulnerabilityState;
+            cableScanner.OnProgressUpdated += HandleProgressUpdate;
         }
     }
 
@@ -58,6 +72,44 @@ public class ST500UIController : MonoBehaviour
             PickupController.OnItemInRange -= HandleItemInRange;
             PickupController.OnItemOutOfRange -= HandleItemOutOfRange;
         }
+
+        // Отписываемся от событий сканера кабелей
+        if (cableScanner != null)
+        {
+            cableScanner.OnStatusChanged -= HandleCableStatusChange;
+            cableScanner.OnVulnerabilityStateChanged -= HandleVulnerabilityState;
+            cableScanner.OnProgressUpdated -= HandleProgressUpdate;
+        }
+    }
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+        }
+        else
+        {
+            Instance = this;
+        }
+    }
+
+    private void Start()
+    {
+        HideAllPanels();
+        SetupCableUI();
+    }
+
+    private void SetupCableUI()
+    {
+        if (cableProgressSlider != null)
+        {
+            cableProgressSlider.gameObject.SetActive(false);
+            sliderFill.color = scanningColor;
+            cableProgressSlider.minValue = 0;
+            cableProgressSlider.maxValue = 1;
+            cableProgressSlider.value = 0;
+        }
     }
 
     private IEnumerator ScanRoutine()
@@ -65,95 +117,105 @@ public class ST500UIController : MonoBehaviour
         while (isScanningActive)
         {
             List<ItemData> items = scanner.GetDetectedItems();
-            Debug.Log($"Найдено устройств: {items.Count}");
-            // Фильтруем по галочкам
             List<ItemData> filteredItems = new List<ItemData>();
+
             foreach (ItemData item in items)
             {
-                Debug.Log($"Устройство: ID={item.ID}, Тип={item.Type}, IR={item.IsIRDevice}");
-                if ((showIRToggle.isOn && item.IsIRDevice) ||
-                    (showFrequencyToggle.isOn && !item.IsIRDevice))
+                bool isIR = item.IsIRDevice;
+                bool showIR = showIRToggle.isOn;
+                bool showFreq = showFrequencyToggle.isOn;
+
+                // Исправленная логика фильтрации:
+                if ((isIR && showIR) || (!isIR && showFreq))
                 {
                     filteredItems.Add(item);
                 }
             }
 
-            // Сортируем по расстоянию
             filteredItems.Sort((a, b) => a.Distance.CompareTo(b.Distance));
 
-            // Очищаем старые элементы
             foreach (var uiElement in scannedItemUIs.Values)
                 Destroy(uiElement.gameObject);
             scannedItemUIs.Clear();
 
-            // Создаем новые элементы UI
             for (int i = 0; i < Mathf.Min(filteredItems.Count, maxDisplayedItems); i++)
             {
                 ItemData item = filteredItems[i];
-                if ((showIRToggle.isOn && item.IsIRDevice) || (showFrequencyToggle.isOn && !item.IsIRDevice))
-                {
-                    GameObject newItemUI = Instantiate(itemInfoTemplate, itemsContainer);
-                    ScannedItemUI scannedUI = newItemUI.GetComponent<ScannedItemUI>();
+                GameObject newItemUI = Instantiate(itemInfoTemplate, itemsContainer);
+                ScannedItemUI scannedUI = newItemUI.GetComponent<ScannedItemUI>();
 
-                    // Устанавливаем позицию через RectTransform
-                    RectTransform rectTransform = newItemUI.GetComponent<RectTransform>();
-                    rectTransform.anchoredPosition = new Vector2(0, -i * itemSpacing);
+                RectTransform rectTransform = newItemUI.GetComponent<RectTransform>();
+                rectTransform.anchoredPosition = new Vector2(0, -i * itemSpacing);
 
-                    scannedUI.Initialize(item);
-                    scannedItemUIs[item.ID] = scannedUI;
-                }
+                scannedUI.Initialize(item);
+                scannedItemUIs[item.ID] = scannedUI;
             }
 
-            yield return new WaitForSeconds(0.5f); // Обновление каждые 0.5 секунд
+            yield return new WaitForSeconds(0.5f);
         }
-    }
-
-    private void Start()
-    {
-        // Скрываем все панели при старте
-        HideAllPanels();
-        //cableScanner = GetComponent<CableScanner>();
     }
 
     public void OnCableScanButtonClick()
     {
-        cableScanner.SetScanningMode(!cableScanner.isScanningMode);
-        OpenPanel(cableScanPanel);
+        bool newScanState = !cableScanner.isScanningMode;
+        cableScanner.SetScanningMode(newScanState);
 
-        if (!cableScanner.isScanningMode)
+        if (newScanState)
         {
-            mainMenuPanel.SetActive(true);
+            OpenPanel(cableScanPanel);
+        }
+        else
+        {
+            OpenPanel(mainMenuPanel);
         }
     }
 
-    public void ShowCableScanStatus(string message)
+    private void HandleCableStatusChange(string message)
     {
-        cableStatusText.text = message;
+        if (cableStatusText != null)
+        {
+            cableStatusText.text = message;
+        }
     }
 
-    private void UpdateCableScanUI()
+    private void HandleVulnerabilityState(bool isFound)
     {
-        if (!cableScanner.isScanningMode) return;
-
-        if (cableScanner.vulnerabilityFound)
+        if (sliderFill != null)
         {
-            // Рассчитываем прогресс по расстоянию
-            float distance = Vector3.Distance(
-                cableScanner.transform.position,
-                cableScanner.currentVulnerability.transform.position
-            );
+            sliderFill.color = isFound ? vulnerabilityColor : scanningColor;
+        }
+    }
 
-            scanProgressSlider.value = 1 - Mathf.Clamp01(distance / 2f);
+    private void HandleProgressUpdate(float progress)
+    {
+        if (cableProgressSlider != null)
+        {
+            if (!cableProgressSlider.gameObject.activeSelf)
+            {
+                cableProgressSlider.gameObject.SetActive(true);
+            }
+
+            cableProgressSlider.value = progress;
+        }
+    }
+
+    public void OnRemoveVulnerability()
+    {
+        if (cableScanner != null && cableScanner.vulnerabilityFound)
+        {
+            cableScanner.RemoveVulnerability();
         }
     }
 
     private void Update()
     {
-        UpdateCableScanUI();
-
-        if (cableScanner.isScanningMode && Input.GetKeyDown(KeyCode.E))
+        // Обработка ввода для удаления уязвимости
+        if (cableScanner != null &&
+            cableScanner.isScanningMode &&
+            cableScanner.vulnerabilityFound &&
+            Input.GetKeyDown(KeyCode.E))
         {
-            cableScanner.RemoveVulnerability();
+            OnRemoveVulnerability();
         }
     }
 
@@ -161,33 +223,100 @@ public class ST500UIController : MonoBehaviour
     {
         if (isActive)
         {
-            // Включаем UI и курсор
             mainMenuPanel.SetActive(true);
         }
         else
         {
-            // Отключаем UI и курсор
             HideAllPanels();
             HandleItemOutOfRange();
+
+            // Выключаем сканирование устройств
+            if (scanner != null && scanner.IsScanningActive)
+            {
+                scanner.ToggleScanning();
+            }
+
+            // Выключаем сканирование кабеля
+            if (cableScanner != null && cableScanner.isScanningMode)
+            {
+                cableScanner.SetScanningMode(false);
+            }
         }
     }
 
     public void OnScanButtonClick()
     {
-        //включаем сканнер
-        // Открываем панель сканирования
         scanner.ToggleScanning();
         isScanningActive = scanner.IsScanningActive;
+
         if (scanner.IsScanningActive)
         {
-            OpenPanel(scanPanel); 
+            OpenPanel(scanPanel);
+            scanCoroutine = StartCoroutine(ScanRoutine());
+        }
+    }
+    public void SetScanModeToggles(bool irActive, bool frequencyActive)
+    {
+        showIRToggle.isOn = irActive;
+        showFrequencyToggle.isOn = frequencyActive;
+    }
+
+    public void OnFrequencyScanButtonClick()
+    {
+        // Устанавливаем режим частотного сканирования
+        scanner.SetScanMode(ScanMode.Frequency);
+
+        // Переключаем тогглы
+        showFrequencyToggle.isOn = true;
+        showIRToggle.isOn = false;
+
+        // Запускаем/обновляем сканирование
+        if (!scanner.IsScanningActive)
+        {
+            OnScanButtonClick();
+        }
+        else
+        {
+            if (scanCoroutine != null) StopCoroutine(scanCoroutine);
+            scanCoroutine = StartCoroutine(ScanRoutine());
+        }
+    }
+
+    public void OnIRScanButtonClick()
+    {
+        // Устанавливаем режим сканирования
+        scanner.SetScanMode(ScanMode.IR);
+
+        // Настраиваем тогглы
+        showIRToggle.isOn = true;
+        showFrequencyToggle.isOn = false;
+
+        // Запускаем/обновляем сканирование
+        if (!scanner.IsScanningActive)
+        {
+            OnScanButtonClick();
+        }
+        else
+        {
+            if (scanCoroutine != null) StopCoroutine(scanCoroutine);
             scanCoroutine = StartCoroutine(ScanRoutine());
         }
     }
 
     public void OnBackButtonClick()
     {
-        scanner.ToggleScanning();
+        if(currentActivePanel == scanPanel && isScanningActive == true)
+        {
+            scanner.ToggleScanning();
+            isScanningActive = false;
+        }
+
+        if(currentActivePanel == cableScanPanel && cableScanner.isScanningMode == true)
+        {
+            cableScanner.isScanningMode = false;
+            cableScanner.SetScanningMode(false);
+        }
+
         CloseCurrentPanel();
         OpenPanel(mainMenuPanel);
     }
@@ -210,12 +339,18 @@ public class ST500UIController : MonoBehaviour
     }
     #endregion
 
-    #region Open/CloseCurrent/HideAll Panel
+    #region Panel Management
     private void OpenPanel(GameObject panel)
     {
         HideAllPanels();
         currentActivePanel = panel;
         panel.SetActive(true);
+
+        // Специальная обработка для панели сканирования кабеля
+        if (panel == cableScanPanel && cableScanner != null)
+        {
+            cableProgressSlider.gameObject.SetActive(cableScanner.isConnectedToCable);
+        }
     }
 
     private void HideAllPanels()
@@ -223,6 +358,12 @@ public class ST500UIController : MonoBehaviour
         mainMenuPanel.SetActive(false);
         scanPanel.SetActive(false);
         cableScanPanel.SetActive(false);
+
+        // Скрываем слайдер при закрытии панели
+        if (cableProgressSlider != null)
+        {
+            cableProgressSlider.gameObject.SetActive(false);
+        }
     }
 
     private void CloseCurrentPanel()

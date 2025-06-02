@@ -106,7 +106,16 @@ public class Cable : MonoBehaviour
     {
         if (vulnerability != null)
         {
-            Destroy(vulnerability);
+            // Переносим логику удаления в VulnerabilityMarker
+            VulnerabilityMarker marker = vulnerability.GetComponent<VulnerabilityMarker>();
+            if (marker != null)
+            {
+                marker.Remove();
+            }
+            else
+            {
+                Destroy(vulnerability);
+            }
             vulnerability = null;
         }
     }
