@@ -102,14 +102,14 @@ public class ST500UIController : MonoBehaviour
 
     private void SetupCableUI()
     {
-        if (cableProgressSlider != null)
+        /*if (cableProgressSlider != null)
         {
             cableProgressSlider.gameObject.SetActive(false);
             sliderFill.color = scanningColor;
             cableProgressSlider.minValue = 0;
             cableProgressSlider.maxValue = 1;
             cableProgressSlider.value = 0;
-        }
+        }*/
     }
 
     private IEnumerator ScanRoutine()
@@ -188,7 +188,7 @@ public class ST500UIController : MonoBehaviour
 
     private void HandleProgressUpdate(float progress)
     {
-        if (cableProgressSlider != null)
+        /*if (cableProgressSlider != null)
         {
             if (!cableProgressSlider.gameObject.activeSelf)
             {
@@ -196,7 +196,7 @@ public class ST500UIController : MonoBehaviour
             }
 
             cableProgressSlider.value = progress;
-        }
+        }*/
     }
 
     public void OnRemoveVulnerability()
@@ -347,10 +347,10 @@ public class ST500UIController : MonoBehaviour
         panel.SetActive(true);
 
         // —пециальна€ обработка дл€ панели сканировани€ кабел€
-        if (panel == cableScanPanel && cableScanner != null)
+        /*if (panel == cableScanPanel && cableScanner != null)
         {
             cableProgressSlider.gameObject.SetActive(cableScanner.isConnectedToCable);
-        }
+        }*/
     }
 
     private void HideAllPanels()
@@ -360,10 +360,10 @@ public class ST500UIController : MonoBehaviour
         cableScanPanel.SetActive(false);
 
         // —крываем слайдер при закрытии панели
-        if (cableProgressSlider != null)
+        /*if (cableProgressSlider != null)
         {
             cableProgressSlider.gameObject.SetActive(false);
-        }
+        }*/
     }
 
     private void CloseCurrentPanel()
